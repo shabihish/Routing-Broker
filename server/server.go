@@ -1,6 +1,8 @@
-package main
+package server
 
 import (
+	"CA1/broker"
+	"CA1/helper"
 	"errors"
 	"math/rand"
 	"sync"
@@ -12,29 +14,20 @@ const (
 	Mode2Way = 1
 )
 
-type Msg struct {
-	valid bool
-	Id    int
-	data  string
-}
-
 type Server struct {
 	currentMessageMu sync.Mutex
-	currMessage      Msg
+	currMessage      helper.Msg
 	mode             int
 	nextResponseId   int
 	lastClientId     int
 	running          bool
 	processing       int
-	brk              *Broker
+	brk              *broker.Broker
+	logger           *helper.Logger
 }
 
-func NewMsg(msgId int, data string) *Msg {
-	return &Msg{true, msgId, data}
-}
-
-func NewServer() *Server {
-	return &Server{sync.Mutex{}, Msg{false, 0, ""}, Mode1Way, 0, -1, false, 0, nil}
+func NewServer(logger *helper.Logger) *Server {
+	return &Server{sync.Mutex{}, *helper.NewMsg(false, 0, ""), Mode1Way, 0, -1, false, 0, nil, logger}
 }
 
 type serverInterface interface {
@@ -61,10 +54,10 @@ func (s *Server) getMessages() {
 
 	for {
 		s.currentMessageMu.Lock()
-		if !s.currMessage.valid {
+		if !s.currMessage.IsValid() {
 
 			if !idleStatePrinted && s.processing == 0 {
-				PrintLogInColor(ColorBlue, "Server: Now idle!\n")
+				s.logger.PrintLogInColor(helper.ColorBlue, "Server: Now idle!\n")
 				idleStatePrinted = true
 			}
 			s.currentMessageMu.Unlock()
@@ -72,13 +65,13 @@ func (s *Server) getMessages() {
 		}
 		idleStatePrinted = false
 		if s.processing == 0 {
-			PrintLogInColor(ColorBlue, "Server: Now processing...\n")
+			s.logger.PrintLogInColor(helper.ColorBlue, "Server: Now processing...\n")
 		}
 
 		s.processing++
 
 		go s.processMessage(s.currMessage.Id, s.lastClientId)
-		s.currMessage.valid = false
+		s.currMessage.Invalidate()
 
 		s.currentMessageMu.Unlock()
 	}
@@ -87,7 +80,7 @@ func (s *Server) getMessages() {
 func (s *Server) processMessage(msgId int, clientId int) {
 	duration := time.Duration((rand.Float32()+0.05)*1000) * time.Millisecond
 
-	PrintLogInColor(ColorBlue, "Server: Got new message with id %v from client %v to process, will be processed for %v\n", msgId, clientId, duration)
+	s.logger.PrintLogInColor(helper.ColorBlue, "Server: Got new message with id %v from client %v to process, will be processed for %v\n", msgId, clientId, duration)
 	time.Sleep(duration)
 
 	if s.mode == Mode2Way {
@@ -96,12 +89,12 @@ func (s *Server) processMessage(msgId int, clientId int) {
 	s.processing--
 }
 
-func (s *Server) PutMessage(msg Msg, clientId int) bool {
+func (s *Server) PutMessage(msg helper.Msg, clientId int) bool {
 	/*
 		Returns true if putting the message has been successful, otherwise returns false.
 	*/
 	s.currentMessageMu.Lock()
-	if s.currMessage.valid {
+	if s.currMessage.IsValid() {
 		s.currentMessageMu.Unlock()
 		return false
 	}
@@ -123,12 +116,12 @@ func (s *Server) getNextResponseId() int {
 }
 
 func (s *Server) generateAndSendResponse(clientId int, responseToMessageId int) {
-	msg := *NewMsg(s.getNextResponseId(), "NEXT_RESPONSE")
+	msg := *helper.NewMsg(true, s.getNextResponseId(), "NEXT_RESPONSE")
 	s.brk.PutNewServerResponse(msg, clientId, responseToMessageId)
-	PrintLogInColor(ColorCyan, "Server: Sent response (%v) for message %v to client %v\n", msg.Id, responseToMessageId, clientId)
+	s.logger.PrintLogInColor(helper.ColorCyan, "Server: Sent response (%v) for message %v to client %v\n", msg.Id, responseToMessageId, clientId)
 }
 
-func (s *Server) Set2WayOn(brk *Broker) error {
+func (s *Server) Set2WayOn(brk *broker.Broker) error {
 	if brk == nil {
 		return errors.New("Not a valid Broker instance given!\n")
 	}
@@ -136,11 +129,10 @@ func (s *Server) Set2WayOn(brk *Broker) error {
 	s.brk = brk
 	s.mode = Mode2Way
 
-	PrintLogInColor(ColorBlue, "Server: Two way response mode turned on!\n")
+	s.logger.PrintLogInColor(helper.ColorBlue, "Server: Two way response mode turned on!\n")
 	return nil
 }
 
 func (s *Server) PutAcknowledgement(responseId int, clientId int) {
-	PrintLogInColor(ColorCyan, "Server: Received acknowledgment for response (%v) to client %v\n", responseId, clientId)
+	s.logger.PrintLogInColor(helper.ColorCyan, "Server: Received acknowledgment for response (%v) to client %v\n", responseId, clientId)
 }
-

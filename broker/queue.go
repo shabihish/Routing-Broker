@@ -1,12 +1,13 @@
-package main
+package broker
 
 import (
+	"CA1/helper"
 	"sync"
 )
 
 type queueItem struct {
-	msg                 Msg
-	client              *Client
+	msg                 helper.Msg
+	client              *helper.ClientInterface
 	isServerResponse    bool
 	responseToMessageId int
 }
@@ -84,7 +85,7 @@ func (q *queue) topFront() queueItem {
 	return out
 }
 
-func (q *queue) hasClient(client *Client) bool {
+func (q *queue) hasClient(client *helper.ClientInterface) bool {
 	out := false
 	q.mu.Lock()
 	for _, item := range q.queue {
