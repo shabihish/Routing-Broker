@@ -11,12 +11,15 @@ type queueItem struct {
 }
 
 type queue struct {
-	queue []queueItem
-	mu sync.Mutex
+	queue     []queueItem
+	mu        sync.Mutex
+	maxLength int
+	twoWay    bool
 }
 
 type queueInterface interface {
 	isEmpty()
+	isFull()
 	push()
 	pop()
 	top()
@@ -28,10 +31,27 @@ func (q *queue) isEmpty() bool {
 	q.mu.Unlock()
 	return out
 }
-func (q *queue) push(item queueItem) {
+
+func (q *queue) isFull() bool {
 	q.mu.Lock()
-	q.queue = append(q.queue, item)
+	out := len(q.queue) >= q.maxLength
 	q.mu.Unlock()
+	return out
+}
+
+func (q *queue) push(item queueItem) bool {
+	pushed := false
+	q.mu.Lock()
+	if len(q.queue) < q.maxLength {
+		q.queue = append(q.queue, item)
+		pushed = true
+	}
+	q.mu.Unlock()
+
+	if !pushed {
+		return false
+	}
+	return true
 }
 
 func (q *queue) pop() queueItem {
@@ -44,6 +64,19 @@ func (q *queue) pop() queueItem {
 func (q *queue) top() queueItem {
 	q.mu.Lock()
 	out := q.queue[0]
+	q.mu.Unlock()
+	return out
+}
+
+func (q *queue) hasClient(client *Client) bool {
+	out := false
+	q.mu.Lock()
+	for _, item := range q.queue {
+		if item.client == client {
+			out = true
+			break
+		}
+	}
 	q.mu.Unlock()
 	return out
 }

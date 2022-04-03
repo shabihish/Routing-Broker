@@ -11,7 +11,7 @@ func printError(err string) {
 	fmt.Printf("\033[31m%v", err)
 }
 
-const NClients = 2
+const NClients = 20
 
 func main() {
 	wg := sync.WaitGroup{}
@@ -20,7 +20,7 @@ func main() {
 	srv := server.NewServer()
 	srv.RunServerAsync()
 
-	brk, err := client_and_broker.NewBroker(srv, client_and_broker.ModeSync)
+	brk, err := client_and_broker.NewBroker(srv, client_and_broker.ModeOverflowHandler)
 	if err != nil {
 		printError(err.Error())
 		return

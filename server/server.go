@@ -78,7 +78,7 @@ func (s *Server) getMessages() {
 func (s *Server) processMessage() {
 	duration := time.Duration((rand.Float32()+0.05)*1000) * time.Millisecond
 
-	helper.PrintInColor(helper.ColorBlue, "Server: Got new message with id %v from helper %v to process, will be processed for %v\n", s.currMessage.Id, s.lastClientId, duration)
+	helper.PrintInColor(helper.ColorBlue, "Server: Got new message with id %v from client %v to process, will be processed for %v\n", s.currMessage.Id, s.lastClientId, duration)
 	time.Sleep(duration)
 	s.processing--
 }
@@ -89,6 +89,7 @@ func (s *Server) PutMessage(msg Msg, clientId int) bool {
 	*/
 	s.currentMessageMu.Lock()
 	if s.currMessage.valid {
+		s.currentMessageMu.Unlock()
 		return false
 	}
 
