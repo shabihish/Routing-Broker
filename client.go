@@ -1,9 +1,7 @@
-package client_and_broker
+package main
 
 import (
-	"CA1/helper"
-	"CA1/server"
-	"fmt"
+	"math/rand"
 	"time"
 )
 
@@ -33,7 +31,7 @@ type clientInterface interface {
 func (c *Client) RunClient() {
 	for {
 		c.generateAndSendNewMessage()
-		time.Sleep(4 * time.Millisecond)
+		time.Sleep(time.Duration(rand.Intn(100)) * time.Millisecond)
 	}
 }
 
@@ -43,13 +41,17 @@ func (c *Client) getNextMessageId() int {
 	return out
 }
 func (c *Client) generateAndSendNewMessage() {
-	msg := *server.NewMsg(c.getNextMessageId(), "NEXT_MESSAGE")
-	go c.brk.PutNewMessage(c, msg)
+	msg := *NewMsg(c.getNextMessageId(), "NEXT_MESSAGE")
+	go c.brk.PutNewMessageFromClient(c, msg)
 
-	fmt.Printf("Client %v: Put new message (%v) into the broker queue\n", c.ClientId, msg.Id)
+	PrintLogInColor(ColorWhite, "Client %v: Put new message (%v) into the broker queue\n", c.ClientId, msg.Id)
 }
 
 func (c *Client) PutAcknowledgement(msgId int) {
 	c.acknowledgedMessages[msgId] = true
-	helper.PrintInColor(helper.ColorGreen,"Client %v: Received acknowledgment for message (%v)\n", c.ClientId, msgId)
+	PrintLogInColor(ColorGreen, "Client %v: Received acknowledgment for message (%v)\n", c.ClientId, msgId)
+}
+
+func (c *Client) PutNewServerResponse(msg Msg, responseToMessageId int) {
+	PrintLogInColor(ColorGreen, "Client %v: Received response message (%v) for message %v from the server\n", c.ClientId, msg.Id, responseToMessageId)
 }

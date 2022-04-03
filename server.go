@@ -1,10 +1,15 @@
-package server
+package main
 
 import (
-	"CA1/helper"
+	"errors"
 	"math/rand"
 	"sync"
 	"time"
+)
+
+const (
+	Mode1Way = 0
+	Mode2Way = 1
 )
 
 type Msg struct {
@@ -16,9 +21,12 @@ type Msg struct {
 type Server struct {
 	currentMessageMu sync.Mutex
 	currMessage      Msg
+	mode             int
+	nextResponseId   int
 	lastClientId     int
 	running          bool
 	processing       int
+	brk              *Broker
 }
 
 func NewMsg(msgId int, data string) *Msg {
@@ -26,7 +34,7 @@ func NewMsg(msgId int, data string) *Msg {
 }
 
 func NewServer() *Server {
-	return &Server{sync.Mutex{}, Msg{false, 0, ""}, -1, false, 0}
+	return &Server{sync.Mutex{}, Msg{false, 0, ""}, Mode1Way, 0, -1, false, 0, nil}
 }
 
 type serverInterface interface {
@@ -56,7 +64,7 @@ func (s *Server) getMessages() {
 		if !s.currMessage.valid {
 
 			if !idleStatePrinted && s.processing == 0 {
-				helper.PrintInColor(helper.ColorBlue, "Server: Now idle!\n")
+				PrintLogInColor(ColorBlue, "Server: Now idle!\n")
 				idleStatePrinted = true
 			}
 			s.currentMessageMu.Unlock()
@@ -64,22 +72,27 @@ func (s *Server) getMessages() {
 		}
 		idleStatePrinted = false
 		if s.processing == 0 {
-			helper.PrintInColor(helper.ColorBlue, "Server: Now processing...\n")
+			PrintLogInColor(ColorBlue, "Server: Now processing...\n")
 		}
 
 		s.processing++
-		go s.processMessage()
 
+		go s.processMessage(s.currMessage.Id, s.lastClientId)
 		s.currMessage.valid = false
+
 		s.currentMessageMu.Unlock()
 	}
 }
 
-func (s *Server) processMessage() {
+func (s *Server) processMessage(msgId int, clientId int) {
 	duration := time.Duration((rand.Float32()+0.05)*1000) * time.Millisecond
 
-	helper.PrintInColor(helper.ColorBlue, "Server: Got new message with id %v from client %v to process, will be processed for %v\n", s.currMessage.Id, s.lastClientId, duration)
+	PrintLogInColor(ColorBlue, "Server: Got new message with id %v from client %v to process, will be processed for %v\n", msgId, clientId, duration)
 	time.Sleep(duration)
+
+	if s.mode == Mode2Way {
+		s.generateAndSendResponse(clientId, msgId)
+	}
 	s.processing--
 }
 
@@ -102,3 +115,32 @@ func (s *Server) PutMessage(msg Msg, clientId int) bool {
 func (s *Server) IsRunning() bool {
 	return s.running
 }
+
+func (s *Server) getNextResponseId() int {
+	out := s.nextResponseId
+	s.nextResponseId++
+	return out
+}
+
+func (s *Server) generateAndSendResponse(clientId int, responseToMessageId int) {
+	msg := *NewMsg(s.getNextResponseId(), "NEXT_RESPONSE")
+	s.brk.PutNewServerResponse(msg, clientId, responseToMessageId)
+	PrintLogInColor(ColorCyan, "Server: Sent response (%v) for message %v to client %v\n", msg.Id, responseToMessageId, clientId)
+}
+
+func (s *Server) Set2WayOn(brk *Broker) error {
+	if brk == nil {
+		return errors.New("Not a valid Broker instance given!\n")
+	}
+
+	s.brk = brk
+	s.mode = Mode2Way
+
+	PrintLogInColor(ColorBlue, "Server: Two way response mode turned on!\n")
+	return nil
+}
+
+func (s *Server) PutAcknowledgement(responseId int, clientId int) {
+	PrintLogInColor(ColorCyan, "Server: Received acknowledgment for response (%v) to client %v\n", responseId, clientId)
+}
+

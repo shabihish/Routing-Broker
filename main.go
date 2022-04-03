@@ -1,27 +1,33 @@
 package main
 
 import (
-	"CA1/client_and_broker"
-	"CA1/server"
-	"fmt"
 	"sync"
 )
 
 func printError(err string) {
-	fmt.Printf("\033[31m%v", err)
+	PrintLogInColor(ColorRed, "%v\n", err)
 }
 
-const NClients = 20
+const NClients = 10
+const Mode = Mode2WayQueue
+
+var colorMu = sync.Mutex{}
 
 func main() {
 	wg := sync.WaitGroup{}
 	wg.Add(NClients + 1)
 
-	srv := server.NewServer()
+	srv := NewServer()
 	srv.RunServerAsync()
 
-	brk, err := client_and_broker.NewBroker(srv, client_and_broker.ModeOverflowHandler)
+	brk, err := NewBroker(srv, Mode)
 	if err != nil {
+		printError(err.Error())
+		return
+	}
+
+
+	if Mode == Mode2WayQueue && srv.Set2WayOn(brk) != nil {
 		printError(err.Error())
 		return
 	}
@@ -29,7 +35,7 @@ func main() {
 	go brk.RunBroker()
 
 	for i := 0; i < NClients; i++ {
-		client := client_and_broker.NewClient(i, brk)
+		client := NewClient(i, brk)
 
 		if client == nil {
 			return

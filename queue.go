@@ -1,13 +1,14 @@
-package client_and_broker
+package main
 
 import (
-	"CA1/server"
 	"sync"
 )
 
 type queueItem struct {
-	msg    server.Msg
-	client *Client
+	msg                 Msg
+	client              *Client
+	isServerResponse    bool
+	responseToMessageId int
 }
 
 type queue struct {
@@ -39,7 +40,7 @@ func (q *queue) isFull() bool {
 	return out
 }
 
-func (q *queue) push(item queueItem) bool {
+func (q *queue) pushBack(item queueItem) bool {
 	pushed := false
 	q.mu.Lock()
 	if len(q.queue) < q.maxLength {
@@ -54,14 +55,29 @@ func (q *queue) push(item queueItem) bool {
 	return true
 }
 
-func (q *queue) pop() queueItem {
+func (q *queue) pushFront(item queueItem) bool {
+	pushed := false
+	q.mu.Lock()
+	if len(q.queue) < q.maxLength {
+		q.queue = append([]queueItem{item}, q.queue...)
+		pushed = true
+	}
+	q.mu.Unlock()
+
+	if !pushed {
+		return false
+	}
+	return true
+}
+
+func (q *queue) popFront() queueItem {
 	q.mu.Lock()
 	out := q.queue[0]
 	q.queue = q.queue[1:]
 	q.mu.Unlock()
 	return out
 }
-func (q *queue) top() queueItem {
+func (q *queue) topFront() queueItem {
 	q.mu.Lock()
 	out := q.queue[0]
 	q.mu.Unlock()
