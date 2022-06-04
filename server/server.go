@@ -30,13 +30,13 @@ func NewServer(logger *helper.Logger) *Server {
 	return &Server{sync.Mutex{}, *helper.NewMsg(false, 0, ""), Mode1Way, 0, -1, false, 0, nil, logger}
 }
 
-type serverInterface interface {
-	RunServer()
-	getMessages()
-	processMessage()
-	PutMessage()
-	IsRunning()
-}
+//type serverInterface interface {
+//	RunServer()
+//	getMessages()
+//	processMessage()
+//	PutMessage()
+//	IsRunning()
+//}
 
 func (s *Server) RunServerAsync() {
 	s.running = true
