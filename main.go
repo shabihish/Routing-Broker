@@ -9,9 +9,7 @@ import (
 )
 
 const NClients = 10
-const Mode = broker.ModeOverflowHandler
-
-var colorMu = sync.Mutex{}
+const Mode = broker.Mode2WayQueue
 
 func main() {
 	logger := helper.Logger{}
