@@ -8,7 +8,7 @@ import (
 )
 
 type Client struct {
-	ClientId                int
+	clientId                int
 	acknowledgedMessages    map[int]bool
 	nextMessageNum          int
 	brk                     *broker.Broker
@@ -16,10 +16,10 @@ type Client struct {
 	assignedClientInterface helper.ClientInterface
 }
 
-type clientInterface interface {
-	RunClient()
-	generateAndSendNewMessages()
-}
+//type clientInterface interface {
+//	RunClient()
+//	generateAndSendNewMessages()
+//}
 
 func (c *Client) getNextMessageId() int {
 	out := c.nextMessageNum
@@ -31,7 +31,7 @@ func (c *Client) generateAndSendNewMessage() {
 	msg := *helper.NewMsg(true, c.getNextMessageId(), "NEXT_MESSAGE")
 	go c.brk.PutNewMessageFromClient(&c.assignedClientInterface, msg)
 
-	c.logger.PrintLogInColor(helper.ColorWhite, "Client %v: Put new message (%v) into the broker queue\n", c.ClientId, msg.Id)
+	c.logger.PrintLogInColor(helper.ColorWhite, "Client %v: Put new message (%v) into the broker queue\n", c.clientId, msg.Id)
 }
 
 func NewClient(clientId int, brk *broker.Broker, logger *helper.Logger) *Client {
@@ -58,13 +58,13 @@ func (c *Client) RunClient() {
 
 func (c *Client) PutAcknowledgement(msgId int) {
 	c.acknowledgedMessages[msgId] = true
-	c.logger.PrintLogInColor(helper.ColorGreen, "Client %v: Received acknowledgment for message (%v)\n", c.ClientId, msgId)
+	c.logger.PrintLogInColor(helper.ColorGreen, "Client %v: Received acknowledgment for message (%v)\n", c.clientId, msgId)
 }
 
 func (c *Client) PutNewServerResponse(msg helper.Msg, responseToMessageId int) {
-	c.logger.PrintLogInColor(helper.ColorGreen, "Client %v: Received response message (%v) for message %v from the server\n", c.ClientId, msg.Id, responseToMessageId)
+	c.logger.PrintLogInColor(helper.ColorGreen, "Client %v: Received response message (%v) for message %v from the server\n", c.clientId, msg.Id, responseToMessageId)
 }
 
 func (c *Client) GetClientId() int {
-	return c.ClientId
+	return c.clientId
 }
